@@ -98,18 +98,19 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    """
-    Expects JSON: { "token": "<client token>", "message": "Hello Jarvis" }
-    Returns JSON: { "reply": "..." } or { "error": "..." }
-    """
-    data = request.get_json(force=True)
+    data = request.get_json()
     token = data.get("token", "")
+    
     if token != SECRET_TOKEN:
         return jsonify({"error": "Unauthorized (invalid token)"}), 401
+    
+    message = data.get("message", "")
+    
+    # Mock response
+    reply = f"Jarvis (mock): You said '{message}'"
+    
+    return jsonify({"reply": reply})
 
-    message = data.get("message", "").strip()
-    if not message:
-        return jsonify({"error": "Empty message"}), 400
 
     # Build messages payload for DeepSeek (system + user)
     messages = [
