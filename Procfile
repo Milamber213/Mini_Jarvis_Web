@@ -1,1 +1,1 @@
-web: python jarvis_app.py
+web: python app.py

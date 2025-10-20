@@ -98,19 +98,18 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.get_json()
+    """
+    Expects JSON: { "token": "<client token>", "message": "Hello Jarvis" }
+    Returns JSON: { "reply": "..." } or { "error": "..." }
+    """
+    data = request.get_json(force=True)
     token = data.get("token", "")
-    
     if token != SECRET_TOKEN:
         return jsonify({"error": "Unauthorized (invalid token)"}), 401
-    
-    message = data.get("message", "")
-    
-    # Mock response
-    reply = f"Jarvis (mock): You said '{message}'"
-    
-    return jsonify({"reply": reply})
 
+    message = data.get("message", "").strip()
+    if not message:
+        return jsonify({"error": "Empty message"}), 400
 
     # Build messages payload for DeepSeek (system + user)
     messages = [
@@ -166,8 +165,19 @@ def chat():
     return jsonify({"reply": reply})
 
 if __name__ == "__main__":
+    import os
+
     port = int(os.environ.get("PORT", 5000))
-    # For local testing, ensure DEEPSEEK_API_KEY and JARVIS_TOKEN env vars set
+    
+    # Use environment variables (Railway sets these automatically)
+    DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+    JARVIS_TOKEN = os.environ.get("JARVIS_TOKEN", "mock-token")
+
     if not DEEPSEEK_API_KEY:
-        print("WARNING: DEEPSEEK_API_KEY is empty. Set env var DEEPSEEK_API_KEY or use .env")
+        print("WARNING: DEEPSEEK_API_KEY is empty. Running in mock mode.")
+    else:
+        print("DEEPSEEK_API_KEY found.")
+
+    print(f"Starting Jarvis on port {port}...")
     app.run(host="0.0.0.0", port=port)
+
