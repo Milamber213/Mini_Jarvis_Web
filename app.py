@@ -1,22 +1,24 @@
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
 # Load environment variables
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 JARVIS_TOKEN = os.getenv("JARVIS_TOKEN", "")
+DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions")
 
-# Test route to verify the server works
+
+# Serve the chat UI
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Jarvis is running on Render!", 200
+    return render_template("index.html")
 
-# Main Chat endpoint
+
+# Chat endpoint (AJAX call from frontend)
 @app.route("/chat", methods=["POST"])
 def chat():
-    # Check access token
     token = request.headers.get("X-Token", "")
     if token != JARVIS_TOKEN:
         return jsonify({"error": "Invalid token"}), 401
@@ -30,7 +32,7 @@ def chat():
     # Call DeepSeek API
     try:
         response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
+            DEEPSEEK_API_URL,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
@@ -38,7 +40,7 @@ def chat():
             json={
                 "model": "deepseek-chat",
                 "messages": [
-                    {"role": "system", "content": "You are Jarvis."},
+                    {"role": "system", "content": "You are Jarvis, an AI assistant with a butler-like personality. Call the user 'Boss'."},
                     {"role": "user", "content": user_message}
                 ]
             },
@@ -55,9 +57,11 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# IMPORTANT: Render requires this run block
+
+# Render requires this
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render assigns PORT here
+    port = int(os.environ.get("PORT", 5000))
     if not DEEPSEEK_API_KEY:
         print("WARNING: DEEPSEEK_API_KEY is empty. Set it in Render > Environment.")
+    print(f"Starting Jarvis on port {port}...")
     app.run(host="0.0.0.0", port=port)

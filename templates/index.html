@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Jarvis Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #chat-container {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            max-width: 70%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: #007bff;
+            color: white;
+        }
+
+        .jarvis {
+            align-self: flex-start;
+            background: #e4e4e4;
+            color: black;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 10px;
+            background: white;
+            border-top: 1px solid #ccc;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container"></div>
+
+<div id="input-container">
+    <input id="message-input" type="text" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+    const TOKEN = "AladamaQ_112213";  // Replace later
+
+    const chatContainer = document.getElementById("chat-container");
+    const messageInput = document.getElementById("message-input");
+
+    function addMessage(text, sender) {
+        const div = document.createElement("div");
+        div.classList.add("message", sender);
+        div.textContent = text;
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        addMessage(message, "user");
+        messageInput.value = "";
+
+        try {
+            const res = await fetch("/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Token": TOKEN
+                },
+                body: JSON.stringify({ message })
+            });
+
+            const data = await res.json();
+            if (data.reply) {
+                addMessage(data.reply, "jarvis");
+            } else if (data.error) {
+                addMessage("Error: " + data.error, "jarvis");
+            }
+        } catch (err) {
+            addMessage("Network error: " + err, "jarvis");
+        }
+    }
+
+    // Send message on Enter key
+    messageInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            sendMessage();
+        }
+    });
+</script>
+
+</body>
+</html>
