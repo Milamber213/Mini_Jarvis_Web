@@ -12,6 +12,9 @@ def home():
     return render_template("index.html")
 
 # Chat endpoint — called by the frontend
+
+import requests
+
 @app.route("/chat", methods=["POST"])
 def chat():
     token = request.headers.get("X-Token", "")
@@ -24,11 +27,35 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # Mock or AI response (use DeepSeek/OpenAI later)
-    reply = f"Jarvis says: {user_message}"
+    deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+    if not deepseek_key:
+        return jsonify({"error": "DeepSeek key missing"}), 500
 
-    return jsonify({"reply": reply})
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {deepseek_key}",
+        }
 
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "You are Jarvis, an intelligent AI assistant with a witty, respectful tone. Always call the user 'Boss'."},
+                {"role": "user", "content": user_message},
+            ],
+            "temperature": 0.7,
+            "max_tokens": 200,
+        }
+
+        response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=payload)
+        result = response.json()
+
+        reply = result["choices"][0]["message"]["content"]
+        return jsonify({"reply": reply})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 # Run app
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
