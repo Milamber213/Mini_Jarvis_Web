@@ -12,6 +12,9 @@ def home():
     return render_template("index.html")
 
 # Chat endpoint — called by the frontend
+
+import requests
+
 @app.route("/chat", methods=["POST"])
 def chat():
     token = request.headers.get("X-Token", "")
