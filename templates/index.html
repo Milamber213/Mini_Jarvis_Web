@@ -68,6 +68,9 @@
         button:hover {
             background: #0056b3;
         }
+
+<button onclick="toggleMic()">🎤</button>
+
     </style>
 </head>
 <body>
@@ -75,9 +78,11 @@
 <div id="chat-container"></div>
 
 <div id="input-container">
-    <input id="message-input" type="text" placeholder="Type a message..." />
+    <input id="message-input" type="text" placeholder="Type or speak..." />
+    <button onclick="toggleMic()">🎤</button>
     <button onclick="sendMessage()">Send</button>
 </div>
+
 
 <script>
     const TOKEN = "AladamaQ_112213";  // Replace later
@@ -100,6 +105,13 @@
         addMessage(message, "user");
         messageInput.value = "";
 
+function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = speechSynthesis.getVoices().find(v => v.name.includes("Male")) || null;
+    utterance.rate = 1;
+    speechSynthesis.speak(utterance);
+}
+
         try {
             const res = await fetch("/chat", {
                 method: "POST",
@@ -113,6 +125,8 @@
             const data = await res.json();
             if (data.reply) {
                 addMessage(data.reply, "jarvis");
+		speak(data.reply);
+	    }
             } else if (data.error) {
                 addMessage("Error: " + data.error, "jarvis");
             }
@@ -128,6 +142,48 @@
         }
     });
 </script>
+
+<script>
+let recognizing = false;
+let recognition;
+
+if ("webkitSpeechRecognition" in window) {
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+        recognizing = true;
+        console.log("🎤 Listening...");
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        messageInput.value = transcript;
+        sendMessage(); // auto-send after speech
+    };
+
+    recognition.onerror = (event) => {
+        console.error(event.error);
+    };
+
+    recognition.onend = () => {
+        recognizing = false;
+        console.log("🎤 Stopped listening.");
+    };
+}
+
+// Microphone button handler
+function toggleMic() {
+    if (recognizing) {
+        recognition.stop();
+    } else {
+        recognition.start();
+    }
+}
+</script>
+
 
 </body>
 </html>
