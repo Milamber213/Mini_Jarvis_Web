@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Online</title>
+    <style>
+        body {
+            background-color: #0b0c10;
+            color: #c5c6c7;
+            font-family: "Segoe UI", sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+        }
+        #chat-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            max-width: 80%;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .user {
+            background-color: #1f2833;
+            align-self: flex-end;
+        }
+        .jarvis {
+            background-color: #45a29e;
+            color: #0b0c10;
+            align-self: flex-start;
+        }
+        #input-container {
+            display: flex;
+            padding: 10px;
+            background-color: #1f2833;
+            border-top: 1px solid #45a29e;
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            outline: none;
+            font-size: 16px;
+            color: #0b0c10;
+        }
+        button {
+            margin-left: 8px;
+            background-color: #45a29e;
+            border: none;
+            color: #0b0c10;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background-color: #66fcf1;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input id="message-input" type="text" placeholder="Type or speak...">
+        <button id="mic-btn" onclick="toggleMic()">🎤</button>
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+    window.onload = function() {
+        const TOKEN = "AladamaQ_112213"; // replace with your real token
+
+        const chatContainer = document.getElementById("chat-container");
+        const messageInput = document.getElementById("message-input");
+
+        // Add messages to chat
+        function addMessage(text, sender) {
+            const div = document.createElement("div");
+            div.classList.add("message", sender);
+            div.textContent = text;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Send message to backend
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            addMessage(message, "user");
+            messageInput.value = "";
+
+            try {
+                const res = await fetch("/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Token": TOKEN
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await res.json();
+                if (data.reply) {
+                    addMessage(data.reply, "jarvis");
+                    speak(data.reply);
+                } else if (data.error) {
+                    addMessage("Error: " + data.error, "jarvis");
+                }
+            } catch (err) {
+                addMessage("Network error: " + err, "jarvis");
+            }
+        }
+
+        // Enter key sends message
+        messageInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+
+        // ----- Voice: Speech Recognition -----
+        let recognizing = false;
+        let recognition;
+
+        if ("webkitSpeechRecognition" in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = "en-US";
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                recognizing = true;
+                document.getElementById("mic-btn").style.backgroundColor = "#66fcf1";
+            };
+
+            recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            messageInput.value = transcript;
+            sendMessage();
+            };
+
+            recognition.onend = () => {
+                recognizing = false;
+                document.getElementById("mic-btn").style.backgroundColor = "#45a29e";
+            };
+        }   
+
+                // Start or stop mic
+        function toggleMic() {
+            if (!recognition) {
+            alert("Speech recognition not supported on this browser.");
+            return;
+            }
+            if (recognizing) recognition.stop();
+            else recognition.start();
+        }
+
+        // ----- Voice: Text-to-Speech -----
+        function speak(text) {
+            if (!("speechSynthesis" in window)) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            utterance.lang = "en-US";
+            speechSynthesis.speak(utterance);
+        }
+            if (data.reply) {
+            addMessage(data.reply, "jarvis");
+            speak(data.reply);
+        }
+
+        // Expose globally for buttons
+        window.sendMessage = sendMessage;
+        window.toggleMic = toggleMic;
+    };
+    </script>
+</body>
+</html>
