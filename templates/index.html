@@ -73,7 +73,7 @@
     <div id="chat-container"></div>
     <div id="input-container">
         <input id="message-input" type="text" placeholder="Type or speak...">
-        <button id="mic-btn" onclick="toggleMic()">🎤</button>
+        <button onclick="toggleMic()">🎤</button>
         <button onclick="sendMessage()">Send</button>
     </div>
 
@@ -135,35 +135,42 @@
 
         if ("webkitSpeechRecognition" in window) {
             recognition = new webkitSpeechRecognition();
-            recognition.lang = "en-US";
             recognition.continuous = false;
             recognition.interimResults = false;
+            recognition.lang = "en-US";
 
             recognition.onstart = () => {
                 recognizing = true;
-                document.getElementById("mic-btn").style.backgroundColor = "#66fcf1";
+                console.log("🎤 Listening...");
             };
 
             recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            messageInput.value = transcript;
-            sendMessage();
+                const transcript = event.results[0][0].transcript;
+                messageInput.value = transcript;
+                sendMessage();
+            };
+
+            recognition.onerror = (event) => {
+                console.error(event.error);
             };
 
             recognition.onend = () => {
                 recognizing = false;
-                document.getElementById("mic-btn").style.backgroundColor = "#45a29e";
+                console.log("🎤 Stopped listening.");
             };
-        }   
+        }
 
-                // Start or stop mic
+        // Start or stop mic
         function toggleMic() {
             if (!recognition) {
-            alert("Speech recognition not supported on this browser.");
-            return;
+                alert("Speech recognition not supported in this browser.");
+                return;
             }
-            if (recognizing) recognition.stop();
-            else recognition.start();
+            if (recognizing) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
         }
 
         // ----- Voice: Text-to-Speech -----
@@ -172,12 +179,7 @@
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 1;
             utterance.pitch = 1;
-            utterance.lang = "en-US";
             speechSynthesis.speak(utterance);
-        }
-            if (data.reply) {
-            addMessage(data.reply, "jarvis");
-            speak(data.reply);
         }
 
         // Expose globally for buttons
