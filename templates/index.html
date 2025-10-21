@@ -86,7 +86,7 @@
 
   <script>
     window.onload = function () {
-      const TOKEN = "AladamaQ_112213"; // replace with your actual token
+      const TOKEN = "AladamaQ_112213"; // must match JARVIS_TOKEN
       const chatContainer = document.getElementById("chat-container");
       const messageInput = document.getElementById("message-input");
       const statusDiv = document.getElementById("status");
@@ -137,6 +137,7 @@
 
           const data = await res.json();
           removeTyping();
+
           if (data.reply) {
             addMessage(data.reply, "jarvis");
             speak(data.reply);
@@ -186,7 +187,7 @@
         else recognition.start();
       }
 
-      // 🔊 ElevenLabs Voice Playback
+      // 🔊 Voice Playback (ElevenLabs or fallback)
       async function speak(text) {
         try {
           const res = await fetch("/voice", {
