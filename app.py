@@ -148,7 +148,7 @@ def voice():
         return jsonify({"error": "Missing ElevenLabs API key"}), 500
 
     try:
-        voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel
+        voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel (default)
         headers = {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
@@ -166,13 +166,30 @@ def voice():
             json=payload,
         )
 
+        # 🔎 Check ElevenLabs result
         if response.status_code != 200:
-            return jsonify({"error": "TTS failed", "details": response.text}), 500
+            print("TTS failed:", response.text)
+            # 👇 Edge-TTS fallback (sync version)
+            try:
+                import edge_tts
+                import asyncio
+
+                async def generate_fallback():
+                    communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
+                    await communicate.save("fallback.mp3")
+
+                asyncio.run(generate_fallback())
+                return send_file("fallback.mp3", mimetype="audio/mpeg")
+
+            except Exception as e:
+                print("Fallback TTS failed:", e)
+                return jsonify({"error": "TTS failed", "details": str(e)}), 500
 
         audio_bytes = BytesIO(response.content)
         return send_file(audio_bytes, mimetype="audio/mpeg")
 
     except Exception as e:
+        print("Voice route error:", e)
         return jsonify({"error": str(e)}), 500
 
 
