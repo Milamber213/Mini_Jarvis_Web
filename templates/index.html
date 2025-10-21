@@ -175,8 +175,7 @@
             utterance.lang = "en-US";
             speechSynthesis.speak(utterance);
         }
-
-        if (data.reply) {
+            if (data.reply) {
             addMessage(data.reply, "jarvis");
             speak(data.reply);
         }
