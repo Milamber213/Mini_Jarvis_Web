@@ -27,6 +27,7 @@ web_access = True  # default ON
 def home():
     return render_template("index.html")
 
+
 # =========================
 # CHAT ENDPOINT
 # =========================
@@ -45,7 +46,9 @@ def chat():
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
 
+        # -------------------------
         # Command toggles
+        # -------------------------
         if "enable web" in user_message.lower():
             web_access = True
             return jsonify({"reply": "Web access re-enabled, Boss."})
@@ -56,28 +59,33 @@ def chat():
             conversation_history = []
             return jsonify({"reply": "Memory cleared, Boss."})
 
-        # =========================
+        # -------------------------
         # Prepare conversation
-        # =========================
+        # -------------------------
         conversation_history.append({"role": "user", "content": user_message})
 
-        # If web mode ON, try searching DuckDuckGo
+        # -------------------------
+        # DuckDuckGo (if web ON)
+        # -------------------------
         web_summary = ""
         if web_access:
-            search_res = requests.get(
-                "https://api.duckduckgo.com/",
-                params={"q": user_message, "format": "json"},
-                headers={"User-Agent": "JarvisAI/1.0"},
-                timeout=10
-            )
-            if search_res.status_code == 200:
-                data = search_res.json()
-                if data.get("AbstractText"):
-                    web_summary = data["AbstractText"]
+            try:
+                search_res = requests.get(
+                    "https://api.duckduckgo.com/",
+                    params={"q": user_message, "format": "json"},
+                    headers={"User-Agent": "JarvisAI/1.0"},
+                    timeout=10
+                )
+                if search_res.status_code == 200:
+                    data = search_res.json()
+                    if data.get("AbstractText"):
+                        web_summary = data["AbstractText"]
+            except Exception as e:
+                print("DuckDuckGo error:", e)
 
-        # =========================
+        # -------------------------
         # DeepSeek Chat
-        # =========================
+        # -------------------------
         payload = {
             "model": "deepseek-chat",
             "messages": [
@@ -114,18 +122,20 @@ def chat():
 
 
 # =========================
-# ELEVENLABS VOICE ROUTE
+# ELEVENLABS + EDGE-TTS VOICE
 # =========================
 @app.route("/voice", methods=["POST"])
 def voice():
-print("🟢 Voice route initialized")
     data = request.get_json()
     text = data.get("text", "")
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
+    print("🎧 Incoming voice request...")
+    print("🔑 ELEVEN_KEY loaded:", bool(ELEVEN_KEY))
+
     # -------------------------
-    # 1️⃣  Try ElevenLabs first
+    # 1️⃣ Try ElevenLabs first
     # -------------------------
     try:
         if ELEVEN_KEY:
@@ -149,8 +159,8 @@ print("🟢 Voice route initialized")
             )
 
             if res.status_code == 200 and res.content:
-                audio_bytes = BytesIO(res.content)
                 print("✅ ElevenLabs voice OK")
+                audio_bytes = BytesIO(res.content)
                 return send_file(audio_bytes, mimetype="audio/mpeg")
             else:
                 print("⚠️ ElevenLabs failed:", res.status_code, res.text)
@@ -159,14 +169,11 @@ print("🟢 Voice route initialized")
     except Exception as e:
         print("⚠️ ElevenLabs voice error:", e)
 
-    # --------------------------------
-    # 2️⃣  Auto-fallback to Edge-TTS
-    # --------------------------------
+    # -------------------------
+    # 2️⃣ Auto-fallback to Edge-TTS
+    # -------------------------
     try:
         print("🎙️ Switching to Edge-TTS fallback...")
-        import asyncio
-        import edge_tts
-
         async def generate():
             communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
             await communicate.save("fallback.mp3")
