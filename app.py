@@ -1,10 +1,8 @@
-from flask import Flask, request, jsonify, send_file, render_template
-import requests
-import os
-from io import BytesIO
-from dotenv import load_dotenv
+from flask import Response, send_file
 import asyncio
 import edge_tts
+from io import BytesIO
+import requests
 
 load_dotenv()
 app = Flask(__name__)
@@ -126,6 +124,7 @@ def chat():
 # =========================
 @app.route("/voice", methods=["POST"])
 def voice():
+    """Generate Jarvis voice via ElevenLabs (with Render-safe audio response)."""
     data = request.get_json()
     text = data.get("text", "")
     if not text:
@@ -134,9 +133,9 @@ def voice():
     print("🎧 Incoming voice request...")
     print("🔑 ELEVEN_KEY loaded:", bool(ELEVEN_KEY))
 
-    # -------------------------
-    # 1️⃣ Try ElevenLabs first
-    # -------------------------
+    # ==========================================================
+    # 1️⃣ Primary: ElevenLabs TTS
+    # ==========================================================
     try:
         if ELEVEN_KEY:
             voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel
@@ -155,13 +154,20 @@ def voice():
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
                 headers=headers,
                 json=payload,
-                timeout=20,
+                timeout=25,
             )
 
             if res.status_code == 200 and res.content:
                 print("✅ ElevenLabs voice OK")
-                audio_bytes = BytesIO(res.content)
-                return send_file(audio_bytes, mimetype="audio/mpeg")
+
+                # Construct a full binary-safe HTTP response
+                audio_data = res.content
+                resp = Response(audio_data, mimetype="audio/mpeg")
+                resp.headers["Content-Length"] = str(len(audio_data))
+                resp.headers["Cache-Control"] = "no-cache"
+                resp.headers["Accept-Ranges"] = "bytes"
+                resp.headers["Content-Disposition"] = "inline; filename=jarvis.mp3"
+                return resp
             else:
                 print("⚠️ ElevenLabs failed:", res.status_code, res.text)
         else:
@@ -169,17 +175,28 @@ def voice():
     except Exception as e:
         print("⚠️ ElevenLabs voice error:", e)
 
-    # -------------------------
-    # 2️⃣ Auto-fallback to Edge-TTS
-    # -------------------------
+    # ==========================================================
+    # 2️⃣ Fallback: Edge-TTS
+    # ==========================================================
     try:
         print("🎙️ Switching to Edge-TTS fallback...")
+
         async def generate():
             communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
             await communicate.save("fallback.mp3")
 
         asyncio.run(generate())
-        return send_file("fallback.mp3", mimetype="audio/mpeg")
+
+        with open("fallback.mp3", "rb") as f:
+            audio_data = f.read()
+
+        resp = Response(audio_data, mimetype="audio/mpeg")
+        resp.headers["Content-Length"] = str(len(audio_data))
+        resp.headers["Cache-Control"] = "no-cache"
+        resp.headers["Accept-Ranges"] = "bytes"
+        resp.headers["Content-Disposition"] = "inline; filename=fallback.mp3"
+        print("✅ Edge-TTS fallback audio ready")
+        return resp
 
     except Exception as e:
         print("❌ Fallback voice error:", e)
