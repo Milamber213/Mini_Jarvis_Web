@@ -118,6 +118,7 @@ def chat():
 # =========================
 @app.route("/voice", methods=["POST"])
 def voice():
+print("🟢 Voice route initialized")
     data = request.get_json()
     text = data.get("text", "")
     if not text:
