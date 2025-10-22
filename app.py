@@ -1,8 +1,10 @@
-from flask import Response, send_file
+from flask import Flask, request, jsonify, send_file, render_template, Response
+import requests
+import os
+from io import BytesIO
 import asyncio
 import edge_tts
-from io import BytesIO
-import requests
+from dotenv import load_dotenv  # ← this must come BEFORE load_dotenv() call
 
 load_dotenv()
 app = Flask(__name__)
