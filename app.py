@@ -123,9 +123,11 @@ def voice():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    # ElevenLabs priority
-    if ELEVEN_KEY:
-        try:
+    # -------------------------
+    # 1️⃣  Try ElevenLabs first
+    # -------------------------
+    try:
+        if ELEVEN_KEY:
             voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel
             headers = {
                 "Accept": "audio/mpeg",
@@ -142,18 +144,28 @@ def voice():
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
                 headers=headers,
                 json=payload,
+                timeout=20,
             )
 
-            if res.status_code == 200:
+            if res.status_code == 200 and res.content:
                 audio_bytes = BytesIO(res.content)
+                print("✅ ElevenLabs voice OK")
                 return send_file(audio_bytes, mimetype="audio/mpeg")
             else:
-                print("TTS failed:", res.text)
-        except Exception as e:
-            print("ElevenLabs voice error:", e)
+                print("⚠️ ElevenLabs failed:", res.status_code, res.text)
+        else:
+            print("⚠️ ELEVENLABS_API_KEY not set")
+    except Exception as e:
+        print("⚠️ ElevenLabs voice error:", e)
 
-    # Edge-TTS fallback
+    # --------------------------------
+    # 2️⃣  Auto-fallback to Edge-TTS
+    # --------------------------------
     try:
+        print("🎙️ Switching to Edge-TTS fallback...")
+        import asyncio
+        import edge_tts
+
         async def generate():
             communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
             await communicate.save("fallback.mp3")
@@ -162,8 +174,8 @@ def voice():
         return send_file("fallback.mp3", mimetype="audio/mpeg")
 
     except Exception as e:
-        print("Fallback voice error:", e)
-        return jsonify({"error": str(e)}), 500
+        print("❌ Fallback voice error:", e)
+        return jsonify({"error": "Voice generation failed", "details": str(e)}), 500
 
 
 # =========================
