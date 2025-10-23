@@ -4,7 +4,8 @@ import os
 from io import BytesIO
 from dotenv import load_dotenv
 import asyncio
-import edge_tts
+from gtts import gTTS
+import tempfile
 
 # ====================================
 # ENVIRONMENT & INITIALIZATION
@@ -113,6 +114,7 @@ def chat():
 # ====================================
 @app.route("/voice", methods=["POST"])
 def voice():
+    """Generate Jarvis voice using ElevenLabs with gTTS fallback."""
     data = request.get_json()
     text = data.get("text", "")
     if not text:
@@ -160,18 +162,14 @@ def voice():
     except Exception as e:
         print("⚠️ ElevenLabs voice error:", e)
 
-    # --- Edge-TTS Fallback ---
+    # --- gTTS Fallback (HTTP Safe) ---
     try:
-        print("❌ Skipping Edge-TTS fallback on Render (network restricted)")
-        return jsonify({"error": "Voice unavailable. ElevenLabs failed and Edge-TTS blocked."}), 500
+        print("🎙️ Switching to gTTS fallback...")
+        tts = gTTS(text)
+        temp_path = tempfile.mktemp(suffix=".mp3")
+        tts.save(temp_path)
 
-        async def generate():
-            communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
-            await communicate.save("fallback.mp3")
-
-        asyncio.run(generate())
-
-        with open("fallback.mp3", "rb") as f:
+        with open(temp_path, "rb") as f:
             audio_data = f.read()
 
         resp = Response(audio_data, mimetype="audio/mpeg")
@@ -179,7 +177,7 @@ def voice():
         resp.headers["Cache-Control"] = "no-cache"
         resp.headers["Accept-Ranges"] = "bytes"
         resp.headers["Content-Disposition"] = "inline; filename=fallback.mp3"
-        print("✅ Edge-TTS fallback ready")
+        print("✅ gTTS fallback ready")
         return resp
 
     except Exception as e:
