@@ -214,17 +214,24 @@ def test_voice():
                 return resp
             else:
                 print("⚠️ ElevenLabs test failed:", res.status_code, res.text)
-        print("🎙️ Falling back to Edge-TTS for test...")
-        async def generate():
-            communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
-            await communicate.save("test_fallback.mp3")
-        asyncio.run(generate())
-        with open("test_fallback.mp3", "rb") as f:
+
+        # gTTS fallback
+        print("🎙️ Falling back to gTTS for test...")
+        from gtts import gTTS
+        import tempfile
+
+        tts = gTTS(text)
+        temp_path = tempfile.mktemp(suffix=".mp3")
+        tts.save(temp_path)
+
+        with open(temp_path, "rb") as f:
             data = f.read()
+
         resp = Response(data, mimetype="audio/mpeg")
         resp.headers["Content-Disposition"] = "inline; filename=test_fallback.mp3"
-        print("✅ Edge-TTS test fallback ready")
+        print("✅ gTTS test fallback ready")
         return resp
+
     except Exception as e:
         print("❌ Test voice error:", e)
         return jsonify({"error": str(e)}), 500
