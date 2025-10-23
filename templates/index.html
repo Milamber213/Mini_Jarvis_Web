@@ -86,12 +86,11 @@
 
   <script>
     window.onload = function () {
-      const TOKEN = "AladamaQ_112213"; // Replace with your actual JARVIS_TOKEN
+      const TOKEN = "12345"; // must match JARVIS_TOKEN in .env
       const chatContainer = document.getElementById("chat-container");
       const messageInput = document.getElementById("message-input");
       const statusDiv = document.getElementById("status");
 
-      // 🧠 Add message to chat
       function addMessage(text, sender) {
         const div = document.createElement("div");
         div.classList.add("message", sender);
@@ -100,7 +99,6 @@
         chatContainer.scrollTop = chatContainer.scrollHeight;
       }
 
-      // ✍️ Typing animation
       function showTyping() {
         const typingDiv = document.createElement("div");
         typingDiv.classList.add("typing");
@@ -115,7 +113,6 @@
         if (typingDiv) typingDiv.remove();
       }
 
-      // 🌐 Update web status indicator
       async function updateStatus(message) {
         if (message.toLowerCase().includes("web access disabled")) {
           statusDiv.textContent = "🌐 Web Access: OFF";
@@ -124,7 +121,6 @@
         }
       }
 
-      // 💬 Send user message
       async function sendMessage() {
         const message = messageInput.value.trim();
         if (!message) return;
@@ -159,7 +155,7 @@
         if (e.key === "Enter") sendMessage();
       });
 
-      // 🎤 Speech Recognition
+      // 🎤 Speech recognition
       let recognizing = false;
       let recognition;
       if ("webkitSpeechRecognition" in window) {
@@ -191,7 +187,7 @@
         else recognition.start();
       }
 
-      // 🔊 Render-safe Audio Playback
+      // 🔊 Voice playback (Render + Brave compatible)
       async function speak(text) {
         try {
           const res = await fetch("/voice", {
@@ -203,14 +199,17 @@
 
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
-          
-          // Explicit load + playback
+
           const audio = new Audio();
           audio.src = url;
           audio.load();
           audio.addEventListener("canplaythrough", () => {
             audio.play().catch((err) => {
-              console.error("Audio playback blocked:", err);
+              console.error("Playback blocked:", err);
+              alert("Click anywhere to enable Jarvis voice.");
+              document.body.addEventListener("click", () => {
+                audio.play();
+              }, { once: true });
             });
           });
         } catch (err) {
@@ -218,7 +217,6 @@
         }
       }
 
-      // Expose for button events
       window.sendMessage = sendMessage;
       window.toggleMic = toggleMic;
     };
