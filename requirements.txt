@@ -1,4 +1,5 @@
-Flask
-requests
-edge-tts
-python-dotenv
+flask==3.0.3
+requests==2.32.3
+python-dotenv==1.0.1
+edge-tts==6.1.12
+gunicorn==23.0.0
