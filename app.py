@@ -162,7 +162,8 @@ def voice():
 
     # --- Edge-TTS Fallback ---
     try:
-        print("🎙️ Switching to Edge-TTS fallback...")
+        print("❌ Skipping Edge-TTS fallback on Render (network restricted)")
+        return jsonify({"error": "Voice unavailable. ElevenLabs failed and Edge-TTS blocked."}), 500
 
         async def generate():
             communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
