@@ -1,35 +1,35 @@
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, render_template, Response, send_file
 import requests
 import os
 from io import BytesIO
 from dotenv import load_dotenv
 import asyncio
-import edge_tts
+from gtts import gTTS
+import tempfile
 
+# ====================================
+# ENVIRONMENT & INITIALIZATION
+# ====================================
 load_dotenv()
 app = Flask(__name__)
 
-# =========================
-# ENVIRONMENT VARIABLES
-# =========================
 DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY")
 ELEVEN_KEY = os.getenv("ELEVENLABS_API_KEY")
 JARVIS_TOKEN = os.getenv("JARVIS_TOKEN", "12345")
 
-# Jarvis memory state
 conversation_history = []
 web_access = True  # default ON
 
-# =========================
-# HOME PAGE
-# =========================
+# ====================================
+# HOME ROUTE
+# ====================================
 @app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
 
-# =========================
-# CHAT ENDPOINT
-# =========================
+# ====================================
+# CHAT ROUTE
+# ====================================
 @app.route("/chat", methods=["POST"])
 def chat():
     global conversation_history, web_access
@@ -41,7 +41,6 @@ def chat():
     try:
         data = request.get_json()
         user_message = data.get("message", "").strip()
-
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
 
@@ -56,76 +55,81 @@ def chat():
             conversation_history = []
             return jsonify({"reply": "Memory cleared, Boss."})
 
-        # =========================
-        # Prepare conversation
-        # =========================
         conversation_history.append({"role": "user", "content": user_message})
 
-        # If web mode ON, try searching DuckDuckGo
+        # DuckDuckGo search if enabled
         web_summary = ""
         if web_access:
-            search_res = requests.get(
-                "https://api.duckduckgo.com/",
-                params={"q": user_message, "format": "json"},
-                headers={"User-Agent": "JarvisAI/1.0"},
-                timeout=10
-            )
-            if search_res.status_code == 200:
-                data = search_res.json()
-                if data.get("AbstractText"):
-                    web_summary = data["AbstractText"]
+            try:
+                res = requests.get(
+                    "https://api.duckduckgo.com/",
+                    params={"q": user_message, "format": "json"},
+                    headers={"User-Agent": "JarvisAI/1.0"},
+                    timeout=10,
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    if data.get("AbstractText"):
+                        web_summary = data["AbstractText"]
+            except Exception as e:
+                print("DuckDuckGo error:", e)
 
-        # =========================
-        # DeepSeek Chat
-        # =========================
-        payload = {
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": "You are Jarvis, a witty AI butler who helps Boss with info and tasks."},
-            ] + conversation_history + (
-                [{"role": "assistant", "content": f"Context from the web: {web_summary}"}] if web_summary else []
-            )
-        }
-
+        # DeepSeek API call
         headers = {
             "Authorization": f"Bearer {DEEPSEEK_KEY}",
             "Content-Type": "application/json",
         }
 
-        ds_response = requests.post(
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "You are Jarvis, a witty AI butler who assists Boss with tasks and info."},
+            ] + conversation_history + (
+                [{"role": "assistant", "content": f"Context from the web: {web_summary}"}] if web_summary else []
+            )
+        }
+
+        response = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
             headers=headers,
             json=payload,
-            timeout=30
+            timeout=25,
         )
 
-        if ds_response.status_code != 200:
-            print("DeepSeek Error:", ds_response.text)
+        if response.status_code != 200:
+            print("DeepSeek Error:", response.text)
             return jsonify({"reply": "I encountered an issue contacting DeepSeek, Boss."})
 
-        answer = ds_response.json()["choices"][0]["message"]["content"]
-        conversation_history.append({"role": "assistant", "content": answer})
+        reply = response.json()["choices"][0]["message"]["content"]
+        conversation_history.append({"role": "assistant", "content": reply})
 
-        return jsonify({"reply": answer})
+        return jsonify({"reply": reply})
 
     except Exception as e:
         print("Chat error:", e)
         return jsonify({"reply": "I encountered an issue processing that, Boss."}), 500
 
-
-# =========================
-# ELEVENLABS VOICE ROUTE
-# =========================
+# ====================================
+# VOICE ROUTE (RENDER-SAFE)
+# ====================================
 @app.route("/voice", methods=["POST"])
 def voice():
+    """Generate Jarvis voice using ElevenLabs with gTTS fallback."""
     data = request.get_json()
     text = data.get("text", "")
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
+<<<<<<< HEAD
     # -------------------------
     # 1️⃣  Try ElevenLabs first
     # -------------------------
+=======
+    print("🎧 Incoming voice request...")
+    print("🔑 ELEVEN_KEY loaded:", bool(ELEVEN_KEY))
+
+    # --- ElevenLabs Primary ---
+>>>>>>> 125b675754c923bdfa9a10c40a9ab92782f5cd56
     try:
         if ELEVEN_KEY:
             voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel
@@ -144,6 +148,7 @@ def voice():
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
                 headers=headers,
                 json=payload,
+<<<<<<< HEAD
                 timeout=20,
             )
 
@@ -151,6 +156,21 @@ def voice():
                 audio_bytes = BytesIO(res.content)
                 print("✅ ElevenLabs voice OK")
                 return send_file(audio_bytes, mimetype="audio/mpeg")
+=======
+                timeout=25,
+            )
+
+            if res.status_code == 200 and res.content:
+                print("✅ ElevenLabs voice OK")
+
+                audio_data = res.content
+                resp = Response(audio_data, mimetype="audio/mpeg")
+                resp.headers["Content-Length"] = str(len(audio_data))
+                resp.headers["Cache-Control"] = "no-cache"
+                resp.headers["Accept-Ranges"] = "bytes"
+                resp.headers["Content-Disposition"] = "inline; filename=jarvis.mp3"
+                return resp
+>>>>>>> 125b675754c923bdfa9a10c40a9ab92782f5cd56
             else:
                 print("⚠️ ElevenLabs failed:", res.status_code, res.text)
         else:
@@ -158,6 +178,7 @@ def voice():
     except Exception as e:
         print("⚠️ ElevenLabs voice error:", e)
 
+<<<<<<< HEAD
     # --------------------------------
     # 2️⃣  Auto-fallback to Edge-TTS
     # --------------------------------
@@ -169,17 +190,89 @@ def voice():
         async def generate():
             communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
             await communicate.save("fallback.mp3")
+=======
+    # --- gTTS Fallback (HTTP Safe) ---
+    try:
+        print("🎙️ Switching to gTTS fallback...")
+        tts = gTTS(text)
+        temp_path = tempfile.mktemp(suffix=".mp3")
+        tts.save(temp_path)
+>>>>>>> 125b675754c923bdfa9a10c40a9ab92782f5cd56
 
-        asyncio.run(generate())
-        return send_file("fallback.mp3", mimetype="audio/mpeg")
+        with open(temp_path, "rb") as f:
+            audio_data = f.read()
+
+        resp = Response(audio_data, mimetype="audio/mpeg")
+        resp.headers["Content-Length"] = str(len(audio_data))
+        resp.headers["Cache-Control"] = "no-cache"
+        resp.headers["Accept-Ranges"] = "bytes"
+        resp.headers["Content-Disposition"] = "inline; filename=fallback.mp3"
+        print("✅ gTTS fallback ready")
+        return resp
 
     except Exception as e:
         print("❌ Fallback voice error:", e)
         return jsonify({"error": "Voice generation failed", "details": str(e)}), 500
 
+<<<<<<< HEAD
 # =========================
+=======
+# ====================================
+# TEST VOICE ROUTE
+# ====================================
+@app.route("/test-voice", methods=["GET"])
+def test_voice():
+    """Quick browser-based voice test for diagnostics."""
+    try:
+        text = "Hello Boss. This is Jarvis voice system online."
+        if ELEVEN_KEY:
+            print("🎧 Running test voice via ElevenLabs...")
+            voice_id = "21m00Tcm4TlvDq8ikWAM"
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": ELEVEN_KEY,
+            }
+            payload = {"text": text, "model_id": "eleven_monolingual_v1"}
+            res = requests.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                headers=headers,
+                json=payload,
+                timeout=25,
+            )
+            if res.status_code == 200 and res.content:
+                print("✅ ElevenLabs test OK")
+                resp = Response(res.content, mimetype="audio/mpeg")
+                resp.headers["Content-Disposition"] = "inline; filename=test.mp3"
+                return resp
+            else:
+                print("⚠️ ElevenLabs test failed:", res.status_code, res.text)
+
+        # gTTS fallback
+        print("🎙️ Falling back to gTTS for test...")
+        from gtts import gTTS
+        import tempfile
+
+        tts = gTTS(text)
+        temp_path = tempfile.mktemp(suffix=".mp3")
+        tts.save(temp_path)
+
+        with open(temp_path, "rb") as f:
+            data = f.read()
+
+        resp = Response(data, mimetype="audio/mpeg")
+        resp.headers["Content-Disposition"] = "inline; filename=test_fallback.mp3"
+        print("✅ gTTS test fallback ready")
+        return resp
+
+    except Exception as e:
+        print("❌ Test voice error:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ====================================
+>>>>>>> 125b675754c923bdfa9a10c40a9ab92782f5cd56
 # RUN APP
-# =========================
+# ====================================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

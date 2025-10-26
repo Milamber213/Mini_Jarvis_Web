@@ -86,7 +86,7 @@
 
   <script>
     window.onload = function () {
-      const TOKEN = "AladamaQ_112213"; // must match JARVIS_TOKEN
+      const TOKEN = "AladamaQ_112213"; // must match JARVIS_TOKEN in .env
       const chatContainer = document.getElementById("chat-container");
       const messageInput = document.getElementById("message-input");
       const statusDiv = document.getElementById("status");
@@ -155,7 +155,7 @@
         if (e.key === "Enter") sendMessage();
       });
 
-      // 🎤 Speech Recognition
+      // 🎤 Speech recognition
       let recognizing = false;
       let recognition;
       if ("webkitSpeechRecognition" in window) {
@@ -187,7 +187,7 @@
         else recognition.start();
       }
 
-      // 🔊 Voice Playback (ElevenLabs or fallback)
+      // 🔊 Voice playback (Render + Brave compatible)
       async function speak(text) {
         try {
           const res = await fetch("/voice", {
@@ -196,10 +196,22 @@
             body: JSON.stringify({ text }),
           });
           if (!res.ok) throw new Error("Voice generation failed");
+
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.play();
+
+          const audio = new Audio();
+          audio.src = url;
+          audio.load();
+          audio.addEventListener("canplaythrough", () => {
+            audio.play().catch((err) => {
+              console.error("Playback blocked:", err);
+              alert("Click anywhere to enable Jarvis voice.");
+              document.body.addEventListener("click", () => {
+                audio.play();
+              }, { once: true });
+            });
+          });
         } catch (err) {
           console.error("Speech error:", err);
         }
